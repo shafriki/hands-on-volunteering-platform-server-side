@@ -34,7 +34,9 @@ async function run() {
 }
 run().catch(console.dir);
 
+// user collections
 const usersCollection = client.db("HandsOn").collection("users");
+const eventsCollection = client.db("HandsOn").collection("events");
 
 // Middleware
 app.use(cors(corsOptions));
@@ -93,6 +95,41 @@ app.post('/users/:email', async (req, res) => {
     res.status(500).send({ error: 'Failed to save user.' });
   }
 });
+
+// Create Event Route
+app.post('/create-event', verifyJwt, async (req, res) => {
+  const { title, category, description, date, time, location, imageUrl, email } = req.body;
+
+  if (!title || !category || !description || !date || !time || !location || !imageUrl || !email) {
+    return res.status(400).send({ error: 'All fields are required' });
+  }
+
+  try {
+    const event = {
+      title,
+      category,
+      description,
+      date,
+      time,
+      location,
+      imageUrl,
+      email,
+      timestamp: new Date(),
+    };
+
+    const result = await eventsCollection.insertOne(event);
+
+    if (result.acknowledged) {
+      res.status(201).send({ success: true, message: 'Event created successfully' });
+    } else {
+      res.status(500).send({ success: false, message: 'Failed to create event' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ success: false, message: 'Failed to create event' });
+  }
+});
+
 
 // Generate JWT token
 app.post('/jwt', (req, res) => {
