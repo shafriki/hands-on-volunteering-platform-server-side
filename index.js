@@ -37,6 +37,7 @@ run().catch(console.dir);
 // user collections
 const usersCollection = client.db("HandsOn").collection("users");
 const eventsCollection = client.db("HandsOn").collection("events");
+const eventParticipantsCollection = client.db("HandsOn").collection("eventParticipants");
 
 // Middleware
 app.use(cors(corsOptions));
@@ -130,6 +131,7 @@ app.post('/create-event', verifyJwt, async (req, res) => {
   }
 });
 
+// get all events
 app.get('/all-events', async (req, res) => {
   const { searchTerm, category, location } = req.query;
 
@@ -194,6 +196,24 @@ app.get('/my-events/:email', verifyJwt, async (req, res) => {
   }
 });
 
+// Get 5 recent events by user's email
+app.get('/recent-events', async (req, res) => {
+  try {
+    const events = await eventsCollection
+      .find({})
+      .sort({ timestamp: -1 }) 
+      .limit(5)
+      .toArray();
+
+    res.send(events);
+  } catch (error) {
+    console.error('Error fetching recent events:', error);
+    res.status(500).send({ message: 'Internal Server Error', error });
+  }
+});
+
+
+
 
 // Delete an event by ID
 app.delete('/delete-event/:id', verifyJwt, async (req, res) => {
@@ -247,6 +267,68 @@ app.put('/update-event/:id', verifyJwt, async (req, res) => {
     res.status(500).send({ message: "Failed to update event", error });
   }
 });
+
+// Join Event Route
+app.post("/join-event", verifyJwt, async (req, res) => {
+  const { eventId } = req.body;
+  const { email } = req.user; // JWT stores the user's email
+
+  if (!eventId) {
+    return res.status(400).send({ error: "Event ID is required" });
+  }
+
+  try {
+    // Check if user has already joined the event
+    const existingParticipant = await eventParticipantsCollection.findOne({
+      email,
+      eventId: new ObjectId(eventId),
+    });
+
+    if (existingParticipant) {
+      return res.status(400).send({ message: "You have already joined this event" });
+    }
+
+    // Add user to the eventParticipants collection
+    const result = await eventParticipantsCollection.insertOne({
+      email,
+      eventId: new ObjectId(eventId),
+      timestamp: new Date(),
+    });
+
+    res.status(200).send({ success: true, message: "Joined event successfully" });
+  } catch (error) {
+    console.error("Error joining event:", error);
+    res.status(500).send({ message: "Failed to join event" });
+  }
+});
+
+
+// my join 
+app.get("/my-join-events", verifyJwt, async (req, res) => {
+  const { email } = req.user; 
+
+  try {
+    const participantEvents = await eventParticipantsCollection.find({ email }).toArray();
+
+    if (participantEvents.length === 0) {
+      return res.status(404).send({ message: "No events found for this user" });
+    }
+
+    const eventIds = participantEvents.map(event => event.eventId);
+    const eventsDetails = await eventsCollection.find({ _id: { $in: eventIds } }).toArray();
+
+    const eventsWithDetails = participantEvents.map(participantEvent => {
+      const fullEvent = eventsDetails.find(event => event._id.toString() === participantEvent.eventId.toString());
+      return { ...participantEvent, event: fullEvent };
+    });
+
+    res.status(200).send({ success: true, events: eventsWithDetails });
+  } catch (error) {
+    console.error("Error retrieving user events:", error);
+    res.status(500).send({ message: "Failed to retrieve events" });
+  }
+});
+
 
 
 
