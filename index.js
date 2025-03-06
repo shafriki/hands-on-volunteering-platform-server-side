@@ -97,6 +97,65 @@ app.post('/users/:email', async (req, res) => {
   }
 });
 
+app.get('/users/:email', verifyJwt, async (req, res) => {
+  const email = req.params.email;
+
+  try {
+    // Check if the user is authorized
+    if (req.user.email !== email && req.user.role !== 'admin') {
+      return res.status(403).send({ error: 'You are not authorized to access this data' });
+    }
+
+    // Find and return the user
+    const user = await usersCollection.findOne({ email });
+
+    if (!user) {
+      return res.status(404).send({ error: 'User not found' });
+    }
+
+    res.send(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: 'Failed to retrieve user.' });
+  }
+});
+
+
+// update profile
+app.put('/users/:email', verifyJwt, async (req, res) => {
+  const email = req.params.email;
+  const updateData = req.body;
+
+  if (req.user.email !== email && req.user.role !== 'admin') {
+    return res.status(403).send({ error: 'You are not authorized to update this profile' });
+  }
+
+  if (!email || !updateData) {
+    return res.status(400).send({ message: "Invalid request, missing email or update data" });
+  }
+
+  const filter = { email };
+  const updateDoc = { $set: updateData };
+
+  try {
+    const result = await usersCollection.updateOne(filter, updateDoc);
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    res.send({ success: true, message: "Profile updated successfully" });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).send({ error: "Failed to update profile" });
+  }
+});
+
+
+
+
+
+
 // Create Event Route
 app.post('/create-event', verifyJwt, async (req, res) => {
   const { title, category, description, date, time, location, imageUrl, email } = req.body;
@@ -209,6 +268,36 @@ app.get('/recent-events', async (req, res) => {
   } catch (error) {
     console.error('Error fetching recent events:', error);
     res.status(500).send({ message: 'Internal Server Error', error });
+  }
+});
+
+
+// Update user profile
+app.put('/users/:email', verifyJwt, async (req, res) => {
+  const email = req.params.email;
+  const updateData = req.body;
+
+  if (!email || !updateData) {
+    return res.status(400).send({ message: "Invalid request" });
+  }
+
+  // Filter for finding the user by email
+  const filter = { email };
+
+  // The new data to update in the user's profile
+  const updateDoc = { $set: updateData };
+
+  try {
+    const result = await usersCollection.updateOne(filter, updateDoc);
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    res.send({ success: true, message: "Profile updated successfully" });
+  } catch (error) {
+    console.error('Error updating profile:', error); 
+    res.status(500).send({ error: "Failed to update profile" });
   }
 });
 
