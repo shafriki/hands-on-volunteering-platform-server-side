@@ -130,6 +130,94 @@ app.post('/create-event', verifyJwt, async (req, res) => {
   }
 });
 
+app.get('/all-events', async (req, res) => {
+  const { searchTerm, category, location } = req.query;
+
+  try {
+    // Create a base query object
+    let query = {};
+
+    if (searchTerm) {
+      query.title = { $regex: searchTerm, $options: 'i' }; 
+    }
+
+    if (category) {
+      query.category = category; 
+    }
+
+    if (location) {
+      query.location = location; 
+    }
+
+    // Fetch events based on the constructed query
+    const result = await eventsCollection.find(query).toArray();
+    res.send(result);
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    res.status(500).send({ message: 'Error fetching events' });
+  }
+});
+
+
+
+// Get single event by ID
+app.get('/event/:id', async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+
+  try {
+    const event = await eventsCollection.findOne(query);
+    if (event) {
+      res.send(event);
+    } else {
+      res.status(404).send({ message: 'Event not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    res.status(500).send({ message: 'Error fetching event' });
+  }
+});
+
+
+// Get events by user's email
+app.get('/my-events/:email', verifyJwt, async (req, res) => {
+  const email = req.params.email;
+  
+  try {
+    const query = { email: email };
+    const events = await eventsCollection.find(query).toArray();
+
+    res.send(events);
+  } catch (error) {
+    console.error('Error fetching events by email:', error);
+    res.status(500).send({ message: 'Internal Server Error', error });
+  }
+});
+
+
+// Delete an event by ID
+app.delete('/delete-event/:id', verifyJwt, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const result = await eventsCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 1) {
+      res.send({ success: true, message: 'Event deleted successfully' });
+    } else {
+      res.status(404).send({ success: false, message: 'Event not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    res.status(500).send({ success: false, message: 'Internal Server Error', error });
+  }
+});
+
+
+
+
+
+
 
 // Generate JWT token
 app.post('/jwt', (req, res) => {
