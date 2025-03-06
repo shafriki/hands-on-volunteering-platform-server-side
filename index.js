@@ -213,6 +213,42 @@ app.delete('/delete-event/:id', verifyJwt, async (req, res) => {
   }
 });
 
+// update events
+app.put('/update-event/:id', verifyJwt, async (req, res) => {
+  const id = req.params.id;
+  const updatedEventData = req.body;
+
+  const query = { _id: new ObjectId(id) };
+  const options = { upsert: false };
+
+  const updateDoc = {
+    $set: {
+      title: updatedEventData.title,
+      category: updatedEventData.category,
+      description: updatedEventData.description,
+      date: updatedEventData.date,
+      time: updatedEventData.time,
+      location: updatedEventData.location,
+      imageUrl: updatedEventData.imageUrl,
+      email: updatedEventData.email,
+    },
+  };
+
+  try {
+    const result = await eventsCollection.updateOne(query, updateDoc, options);
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).send({ message: "Event not found or no changes made" });
+    }
+
+    res.send({ message: "Event updated successfully", result });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to update event", error });
+  }
+});
+
+
 
 
 
