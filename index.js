@@ -38,6 +38,8 @@ run().catch(console.dir);
 const usersCollection = client.db("HandsOn").collection("users");
 const eventsCollection = client.db("HandsOn").collection("events");
 const eventParticipantsCollection = client.db("HandsOn").collection("eventParticipants");
+const helpRequestsCollection = client.db("HandsOn").collection("helpRequests");
+
 
 // Middleware
 app.use(cors(corsOptions));
@@ -417,6 +419,39 @@ app.get("/my-join-events", verifyJwt, async (req, res) => {
     res.status(500).send({ message: "Failed to retrieve events" });
   }
 });
+
+// create help request related api
+app.post('/help-request', verifyJwt, async (req, res) => {
+  const { title, description, urgency, location, email } = req.body;
+
+  if (!title || !description || !urgency || !location || !email) {
+    return res.status(400).send({ error: 'All fields are required' });
+  }
+
+  try {
+    const helpRequest = {
+      title,
+      description,
+      urgency,
+      location,
+      email,
+      timestamp: new Date(),
+      comments: [],
+    };
+
+    const result = await helpRequestsCollection.insertOne(helpRequest);
+
+    if (result.acknowledged) {
+      res.status(201).send({ success: true, message: 'Help request posted successfully' });
+    } else {
+      res.status(500).send({ success: false, message: 'Failed to post help request' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ success: false, message: 'Failed to post help request' });
+  }
+});
+
 
 
 
