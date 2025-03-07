@@ -452,6 +452,56 @@ app.post('/help-request', verifyJwt, async (req, res) => {
   }
 });
 
+// Get all help requests (with optional urgency filter)
+app.get('/help-requests', async (req, res) => {
+  const { urgency } = req.query;
+  let query = urgency ? { urgency } : {};
+
+  try {
+    const result = await helpRequestsCollection.find(query).toArray();
+    res.send(result);
+  } catch (error) {
+    console.error('Error fetching help requests:', error);
+    res.status(500).send({ message: 'Error fetching help requests' });
+  }
+});
+
+// Add a comment to a help request
+app.post('/help-request/:id/comment', verifyJwt, async (req, res) => {
+  const { id } = req.params; 
+  const { commentText } = req.body; 
+
+  if (!commentText) {
+    return res.status(400).send({ error: 'Comment text is required' });
+  }
+
+  const { name, email } = req.user; 
+
+  try {
+    
+    const result = await helpRequestsCollection.updateOne(
+      { _id: new ObjectId(id) }, 
+      {
+        $push: {
+          comments: {
+            text: commentText,
+            userName: name || email,  
+            timestamp: new Date(),
+          },
+        },
+      }
+    );
+
+    if (result.matchedCount > 0) {
+      res.status(200).send({ success: true, message: 'Comment added successfully' });
+    } else {
+      res.status(404).send({ success: false, message: 'Help request not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ success: false, message: 'Failed to add comment' });
+  }
+});
 
 
 
