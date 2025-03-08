@@ -9,7 +9,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 const corsOptions = {
-  origin: ['http://localhost:5173', 'https://robendevs-handson.web.app'],
+  origin: ['http://localhost:5173', 'https://robendevs-handson.web.app','https://robendevs-handson.firebaseapp.com'],
   credentials: true,
   optionSuccessStatus: 200,
 };
