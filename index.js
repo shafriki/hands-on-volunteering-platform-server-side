@@ -9,7 +9,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 const corsOptions = {
-  origin: ['http://localhost:5173'],
+  origin: ['http://localhost:5173', 'https://robendevs-handson.web.app'],
   credentials: true,
   optionSuccessStatus: 200,
 };
@@ -26,8 +26,8 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
+    // await client.connect();
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
   }
@@ -519,7 +519,7 @@ app.post('/create-team', verifyJwt, async (req, res) => {
       teamName,
       description,
       teamType,
-      inviteEmails: teamType === "private" ? inviteEmails || [] : [],
+      inviteEmails: teamType === "private" ? inviteEmails || [] : [], // Handling inviteEmails only if the team is private
       createdAt: new Date(),
     };
 
@@ -535,6 +535,73 @@ app.post('/create-team', verifyJwt, async (req, res) => {
     res.status(500).send({ success: false, message: "Internal server error" });
   }
 });
+
+// Join Team Route
+app.post('/join-team', verifyJwt, async (req, res) => {
+  const { teamId } = req.body;
+  const userEmail = req.user?.email; // Assuming the email is stored in the JWT token
+
+  if (!teamId || !userEmail) {
+    return res.status(400).send({ success: false, message: "Team ID and User Email are required" });
+  }
+
+  try {
+    // Find the team
+    const team = await teamsCollection.findOne({ _id: new ObjectId(teamId) });
+
+    if (!team) {
+      return res.status(404).send({ success: false, message: "Team not found" });
+    }
+
+    // Check if the team is public
+    if (team.teamType !== "public") {
+      return res.status(403).send({ success: false, message: "You can only join public teams" });
+    }
+
+    // Check if the user is already a member
+    if (team.members?.includes(userEmail)) {
+      return res.status(400).send({ success: false, message: "You are already a member of this team" });
+    }
+
+    // Update the team to add the user as a member
+    const updateResult = await teamsCollection.updateOne(
+      { _id: new ObjectId(teamId) },
+      { $push: { members: userEmail } }
+    );
+
+    if (updateResult.modifiedCount > 0) {
+      res.status(200).send({ success: true, message: "Successfully joined the team" });
+    } else {
+      res.status(500).send({ success: false, message: "Failed to join the team" });
+    }
+  } catch (error) {
+    console.error("Error joining team:", error);
+    res.status(500).send({ success: false, message: "Internal server error" });
+  }
+});
+
+
+// Get Teams Route (Modified to show all teams)
+app.get('/teams', verifyJwt, async (req, res) => {
+  try {
+    const { userEmail } = req.query;
+    let query = {};
+
+    // If userEmail is provided, fetch teams created by the user
+    if (userEmail) {
+      query.createdBy = userEmail;
+    }
+
+    const teams = await teamsCollection.find(query).toArray();
+    res.status(200).send({ success: true, teams });
+  } catch (error) {
+    console.error("Error fetching teams:", error);
+    res.status(500).send({ success: false, message: "Internal server error" });
+  }
+});
+
+
+
 
 
 
