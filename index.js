@@ -39,6 +39,8 @@ const usersCollection = client.db("HandsOn").collection("users");
 const eventsCollection = client.db("HandsOn").collection("events");
 const eventParticipantsCollection = client.db("HandsOn").collection("eventParticipants");
 const helpRequestsCollection = client.db("HandsOn").collection("helpRequests");
+const teamsCollection = client.db("HandsOn").collection("teams");
+
 
 
 // Middleware
@@ -500,6 +502,37 @@ app.post('/help-request/:id/comment', verifyJwt, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).send({ success: false, message: 'Failed to add comment' });
+  }
+});
+
+
+// Create Team Route
+app.post('/create-team', verifyJwt, async (req, res) => {
+  const { teamName, description, teamType, inviteEmails } = req.body;
+
+  if (!teamName || !description || !teamType) {
+    return res.status(400).send({ success: false, error: "All fields are required" });
+  }
+
+  try {
+    const team = {
+      teamName,
+      description,
+      teamType,
+      inviteEmails: teamType === "private" ? inviteEmails || [] : [],
+      createdAt: new Date(),
+    };
+
+    const result = await teamsCollection.insertOne(team);
+
+    if (result.acknowledged) {
+      res.status(201).send({ success: true, message: "Team created successfully" });
+    } else {
+      res.status(500).send({ success: false, message: "Failed to create team" });
+    }
+  } catch (error) {
+    console.error("Error creating team:", error);
+    res.status(500).send({ success: false, message: "Internal server error" });
   }
 });
 
